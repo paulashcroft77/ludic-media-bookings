@@ -1,0 +1,444 @@
+<title>Scribing Booking Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one app, three audiences. A role switcher on top; every view reads the same job state. */
+:root{
+  --paper:#FBFAF6; --ink:#17161A; --ink-2:#5B5962; --line:#E3E0D6; --panel:#FFFFFF; --panel-2:#F2F0E8;
+  --marker:#F5C518; --marker-ink:#2A2300; --go:#1E8E5A; --go-bg:#E3F4EA; --warn:#B85C00; --warn-bg:#FBEEDD; --info:#2456C8; --info-bg:#E6ECFB;
+  --display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif; --body:"Instrument Sans","Helvetica Neue",Arial,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--paper:#121215;--ink:#F1EFE8;--ink-2:#A6A3AE;--line:#2C2B32;--panel:#1B1B20;--panel-2:#232229;--marker:#F5C518;--marker-ink:#2A2300;--go:#5CCB92;--go-bg:#17312A;--warn:#F0A04B;--warn-bg:#3A2A14;--info:#8DAAF5;--info-bg:#1E2740;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#121215;--ink:#F1EFE8;--ink-2:#A6A3AE;--line:#2C2B32;--panel:#1B1B20;--panel-2:#232229;--marker:#F5C518;--marker-ink:#2A2300;--go:#5CCB92;--go-bg:#17312A;--warn:#F0A04B;--warn-bg:#3A2A14;--info:#8DAAF5;--info-bg:#1E2740;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:1.5rem;font-weight:700}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+.muted{color:var(--ink-2)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);font-weight:600}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-block:18px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.05rem}
+.brand .face{width:30px;height:30px;border-radius:50%;background:var(--ink);position:relative}
+.brand .face::before,.brand .face::after{content:"";position:absolute;background:var(--marker);width:4px;height:7px;border-radius:2px;top:9px}
+.brand .face::before{left:9px}.brand .face::after{left:17px}
+.brand .face i{position:absolute;left:8px;right:8px;bottom:7px;height:6px;border-bottom:3px solid var(--marker);border-radius:0 0 10px 10px}
+.proto{font-size:.72rem;padding:3px 8px;border:1px dashed var(--ink-2);border-radius:999px;color:var(--ink-2)}
+.roles{display:flex;gap:4px;margin-left:auto;background:var(--panel-2);padding:4px;border-radius:999px}
+.roles button{border:0;background:transparent;color:var(--ink-2);font:inherit;font-weight:600;padding:7px 14px;border-radius:999px;cursor:pointer}
+.roles button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.roles button:focus-visible{outline:2px solid var(--marker);outline-offset:2px}
+
+/* status strip */
+.strip{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding-block:16px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.strip .ref{font-family:var(--mono);font-weight:500;background:var(--marker);color:var(--marker-ink);padding:3px 9px;border-radius:6px}
+.steps{display:flex;flex-wrap:wrap;gap:6px}
+.step{font-size:.78rem;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+.step.done{border-color:var(--go);color:var(--go);background:var(--go-bg)}
+.step.now{border-color:var(--ink);color:var(--ink);background:var(--panel);font-weight:600}
+
+/* generic */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.grid{display:grid;gap:20px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:repeat(3,1fr)}
+.side{grid-template-columns:minmax(0,1fr) 320px}
+@media (max-width:760px){.g2,.g3,.side{grid-template-columns:1fr}}
+.grid>*{min-width:0}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:.92rem}
+.kv dt{color:var(--ink-2)}.kv dd{margin:0}
+@media (max-width:480px){.kv{grid-template-columns:1fr}.kv dt{margin-top:6px}}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th{text-align:left;font-weight:600;color:var(--ink-2);font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+label{display:block;font-size:.85rem;font-weight:600;margin-bottom:4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--marker);outline-offset:1px}
+.field{margin-bottom:12px}
+.btn{font:inherit;font-weight:600;border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;cursor:pointer}
+.btn.secondary{background:transparent;color:var(--ink)}
+.btn.marker{background:var(--marker);border-color:var(--marker);color:var(--marker-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{padding:6px 10px;font-size:.85rem}
+.pill{display:inline-block;font-size:.75rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--panel-2);color:var(--ink-2)}
+.pill.go{background:var(--go-bg);color:var(--go)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.info{background:var(--info-bg);color:var(--info)}
+.notice{border-left:3px solid var(--marker);background:var(--panel-2);padding:12px 14px;border-radius:0 8px 8px 0;font-size:.92rem}
+.choice{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+.choice.three{grid-template-columns:repeat(3,1fr)}
+@media (max-width:560px){.choice,.choice.three{grid-template-columns:1fr}}
+.choice label{border:1px solid var(--line);border-radius:var(--r);padding:14px;cursor:pointer;font-weight:400;display:block}
+.choice label:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.choice input{width:auto;margin-right:8px}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:400;font-size:.92rem}
+.check input{width:auto;margin-top:4px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.stack{display:grid;gap:20px}
+.log{list-style:none;margin:0;padding:0;font-size:.85rem}
+.log li{display:grid;grid-template-columns:62px 1fr;gap:10px;padding-block:6px;border-bottom:1px solid var(--line)}
+.log li span:first-child{color:var(--ink-2);font-family:var(--mono);font-size:.78rem}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.9rem;box-shadow:0 8px 24px rgba(0,0,0,.2);transition:opacity .3s}
+.toast[hidden]{display:none}
+.hero{padding-block:28px 8px}
+.hero p{max-width:60ch}
+.ok{font-size:1.1rem;padding:18px;border-radius:var(--r);background:var(--go-bg);color:var(--go);font-weight:600}
+
+/* kanban */
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:220px;gap:12px;overflow-x:auto;padding-bottom:8px}
+.col{background:var(--panel-2);border-radius:var(--r);padding:10px;min-height:160px}
+.col h4{font-family:var(--display);font-size:.85rem;margin:0 0 8px;display:flex;justify-content:space-between;color:var(--ink-2)}
+.jobcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;font-size:.85rem;cursor:pointer}
+.jobcard.active{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.jobcard .r{font-family:var(--mono);font-size:.75rem;color:var(--ink-2)}
+.jobcard b{display:block;margin:2px 0}
+.scribe{display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--marker);color:var(--marker-ink);display:grid;place-items:center;font-family:var(--display);font-weight:700;flex:none}
+.scribe .meta{flex:1;min-width:0;font-size:.85rem}
+.scribe .meta b{display:block}
+.samples{display:flex;gap:8px;margin-top:8px}
+.samples span{flex:1;aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(135deg,var(--panel-2) 0 8px,var(--line) 8px 10px);border:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="face"><i></i></span>Ludic Media Studio <span class="proto">booking prototype</span></div>
+    <div class="roles" role="tablist" aria-label="View as">
+      <button role="tab" data-view="client" aria-selected="true">Client booking</button>
+      <button role="tab" data-view="scribe" aria-selected="false">Scribe portal</button>
+      <button role="tab" data-view="admin" aria-selected="false">Job tracker</button>
+    </div>
+  </header>
+
+  <div class="strip">
+    <span class="ref" id="ref">LMS-2026-0042</span>
+    <span id="eventname">Leadership Summit 2026 · Northwind Energy</span>
+    <div class="steps" id="steps"></div>
+  </div>
+
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ---------- shared job state (what Supabase would hold) ----------
+const STAGES = ["draft","awaiting_client","booked","sourcing","scribe_assigned","confirmed","delivered","closed"];
+const LABEL = {draft:"Draft",awaiting_client:"Awaiting client",booked:"Booked",sourcing:"Sourcing scribe",scribe_assigned:"Scribe assigned",confirmed:"Confirmed",delivered:"Delivered",closed:"Closed",cancelled:"Cancelled"};
+const scribes = [
+  {id:"s1",name:"Pete",initial:"P",base:"Birmingham",styles:"Digital live scribing, keynotes",day:650,half:400,langs:"English",avail:"Available 29 Nov – 2 Dec"},
+  {id:"s2",name:"Maria",initial:"M",base:"London",styles:"Analogue wall, workshops",day:600,half:375,langs:"English, Spanish",avail:"Available"},
+  {id:"s3",name:"Jonas",initial:"J",base:"Copenhagen",styles:"Digital, sketchnotes",day:700,half:425,langs:"English, Danish",avail:"Booked 30 Nov"},
+];
+const job = {
+  ref:"LMS-2026-0042", status:"awaiting_client", payment:"unpaid", contract:"pending", route:null,
+  client:{org:"Northwind Energy", contact:"Helen Marsh", email:"helen.marsh@northwind.example", phone:"+44 7700 900123"},
+  event:{name:"Leadership Summit 2026", purpose:"Capture the key messages of each day so leaders leave with one shared picture.", capture:"Keynotes and closing session, plus selected breakouts", type:"Digital live scribing", size:"c. 350 delegates", venue:"The ICC, Broad Street, Birmingham"},
+  sessions:[
+    {d:"Sun 29 Nov 2026", t:"18:00–19:00", what:"Opening keynote"},
+    {d:"Mon 30 Nov 2026", t:"09:00–11:00", what:"Opening and keynote, then breakouts (tbc)"},
+    {d:"Tue 1 Dec 2026", t:"09:30–10:00", what:"Keynote and closing (tbc)"},
+  ],
+  fees:[
+    {desc:"Digital scribing, half day (up to 4 h consecutive)", qty:2, rate:1000},
+    {desc:"Additional half day, Tue 1 Dec", qty:1, rate:800},
+  ],
+  outputs:{spec:"One A1 digital visual per day, PNG + editable source; social crops on request", due:"Fri 4 Dec 2026", rights:"Client holds usage rights; studio may show in portfolio with permission"},
+  logistics:{room:"", onsite:"", arrival:"", access:"", materials:"", travel:"no"},
+  billing:{entity:"Northwind Energy Ltd", address:"Lockheed Court, Preston Farm, Stockton-on-Tees TS18 3SH", ap:"ap@northwind.example", vat:"GB 123 4567 89", po:""},
+  offer:null, scribe:null, clientConfirmed:false, outputsUploaded:false, released:false,
+  log:[{t:"12 Oct 10:40", a:"Job created by Aliki after scoping call. Booking link sent to Helen."}],
+};
+const total = () => job.fees.reduce((s,f)=>s+f.qty*f.rate,0);
+const gbp = n => "£"+n.toLocaleString("en-GB");
+let view = "client";
+let adminJob = job.ref;
+let adminMode = "board"; // or "new"
+let nextSeq = 43;
+const first = () => job.client.contact.split(" ")[0];
+const dateRange = () => job.sessions.length>1 ? job.sessions[0].d.replace(/ \d{4}$/,"")+" – "+job.sessions[job.sessions.length-1].d : job.sessions[0]?.d || "dates tbc";
+
+// other jobs for the board (illustrative)
+const others = [
+  {ref:"LMS-2026-0039", ev:"Quarterly town hall", org:"Barilla", status:"confirmed", scribe:"Maria", fee:1600},
+  {ref:"LMS-2026-0040", ev:"Innovation Day", org:"ZEISS", status:"delivered", scribe:"Jonas", fee:2400},
+  {ref:"LMS-2026-0041", ev:"Partner kick-off", org:"SAP UKI", status:"draft", scribe:null, fee:1000},
+  {ref:"LMS-2026-0038", ev:"Pride month launch", org:"Novartis", status:"closed", scribe:"Pete", fee:1200},
+];
+
+function logIt(a){ const d=new Date(); job.log.push({t:d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}), a}); }
+function set(status,msg){ job.status=status; if(msg) logIt(msg); render(); }
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.hidden=false; clearTimeout(t._x); t._x=setTimeout(()=>t.hidden=true,2600); }
+
+// ---------- rendering ----------
+function renderSteps(){
+  const i = STAGES.indexOf(job.status);
+  document.getElementById("steps").innerHTML = STAGES.slice(1).map((s,k)=>`<span class="step ${k+1<i?"done":k+1===i?"now":""}">${LABEL[s]}</span>`).join("");
+}
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function scopeBlock(){
+  return `<section class="card">
+    <h2>Scope and fee</h2>
+    <p class="muted" style="margin:4px 0 14px">Agreed on our scoping call. Tell us if anything below is wrong before you confirm.</p>
+    <dl class="kv">
+      <dt>Event</dt><dd>${esc(job.event.name)}, ${esc(job.event.venue)}</dd>
+      <dt>Purpose</dt><dd>${esc(job.event.purpose)}</dd>
+      <dt>What we capture</dt><dd>${esc(job.event.capture)}</dd>
+      <dt>Format</dt><dd>${esc(job.event.type)} · ${esc(job.event.size)}</dd>
+      <dt>Outputs</dt><dd>${esc(job.outputs.spec)}<br><span class="muted">Delivered by ${esc(job.outputs.due)}</span></dd>
+    </dl>
+    <h3 style="margin:18px 0 8px">Schedule</h3>
+    <div class="tbl"><table><thead><tr><th>Date</th><th>Time</th><th>Session</th></tr></thead><tbody>
+      ${job.sessions.map(s=>`<tr><td>${esc(s.d)}</td><td class="mono">${esc(s.t)}</td><td>${esc(s.what)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <h3 style="margin:18px 0 8px">Fee</h3>
+    <div class="tbl"><table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
+      ${job.fees.map(f=>`<tr><td>${esc(f.desc)}</td><td class="num">${f.qty}</td><td class="num">${gbp(f.rate)}</td><td class="num">${gbp(f.qty*f.rate)}</td></tr>`).join("")}
+      <tr><td colspan="3"><b>Total, excluding VAT and expenses</b></td><td class="num"><b>${gbp(total())}</b></td></tr>
+    </tbody></table></div>
+    <p class="muted" style="margin-top:8px;font-size:.85rem">Travel and accommodation are billed at cost on the final invoice. Half a day is up to 4 hours of consecutive support.</p>
+  </section>`;
+}
+
+function clientView(){
+  const s = job.status;
+  if (s==="awaiting_client") return `
+    <div class="hero"><p class="eyebrow">Your booking</p><h1>Hello ${esc(first())}, here's your scribing booking to confirm</h1><p class="muted" style="margin-top:8px">Check the scope, add the on-site details and tell us how you'd like to pay. Takes about five minutes.</p></div>
+    <form id="bookingForm" class="grid side">
+      <div class="stack">
+        ${scopeBlock()}
+        <section class="card">
+          <h2>On the day</h2>
+          <div class="grid g2" style="margin-top:14px">
+            <div class="field"><label for="room">Room or hall</label><input id="room" value="Hall 3, keynote stage" required></div>
+            <div class="field"><label for="onsite">On-site contact and mobile</label><input id="onsite" value="Tom Reid, +44 7700 900456" required></div>
+            <div class="field"><label for="arrival">Scribe arrival time</label><input id="arrival" value="17:00 on Sun 29 Nov (set-up and sound check)"></div>
+            <div class="field"><label for="access">Access, security, badges</label><input id="access" value="Crew pass at Hall 3 production desk"></div>
+          </div>
+          <div class="field"><label for="materials">Available on site</label><select id="materials"><option>Screen feed for the digital visual, power at stage left</option><option>Screen feed only</option><option>Nothing yet, please advise</option></select></div>
+          <div class="field"><label for="travel">Travel and accommodation</label><select id="travel"><option value="no">We'll arrange nothing; studio books and bills at cost</option><option value="client">We will book travel and hotel for the scribe</option></select></div>
+        </section>
+        <section class="card">
+          <h2>Billing</h2>
+          <div class="grid g2" style="margin-top:14px">
+            <div class="field"><label for="entity">Legal entity to invoice</label><input id="entity" value="${esc(job.billing.entity)}" required></div>
+            <div class="field"><label for="vat">VAT number</label><input id="vat" value="${esc(job.billing.vat)}"></div>
+          </div>
+          <div class="field"><label for="addr">Billing address</label><input id="addr" value="${esc(job.billing.address)}" required></div>
+          <div class="field"><label for="ap">Accounts payable email</label><input id="ap" value="${esc(job.billing.ap)}" required></div>
+          <h3 style="margin:12px 0 8px">How would you like to pay?</h3>
+          <div class="choice">
+            <label><input type="radio" name="route" value="po" checked><b>Purchase order</b><br><span class="muted">We invoice ${gbp(total())} against your PO, 30-day terms.</span>
+              <div class="field" style="margin-top:10px"><label for="po">PO number (or add later)</label><input id="po" placeholder="e.g. 4500123456"></div></label>
+            <label><input type="radio" name="route" value="card"><b>Pay by card</b><br><span class="muted">50% deposit (${gbp(total()/2)}) now by card, Apple Pay or Google Pay. Balance within 7 days of delivery.</span></label>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Terms</h2>
+          <p class="muted" style="margin:6px 0 12px;font-size:.92rem">Cancellation: free up to 14 days before the first session; 50% within 14 days; 100% within 48 hours. Usage rights as set out above. Full terms (v1, Oct 2026) are linked in the email you received.</p>
+          <label class="check"><input type="checkbox" id="accept" required><span>I, ${esc(job.client.contact)}, accept the schedule of work and terms on behalf of ${esc(job.billing.entity)}. We'll record the date, time and IP address and email you a PDF copy.</span></label>
+          <div class="actions"><button class="btn marker" type="submit">Confirm booking</button><button class="btn secondary" type="button" id="queryBtn">Something's not right</button></div>
+        </section>
+      </div>
+      <aside class="stack">
+        <div class="card"><p class="eyebrow">What happens next</p>
+          <ol style="margin:8px 0 0;padding-left:18px;font-size:.92rem;display:grid;gap:6px"><li>We match a scribe to your event and ask them to hold the dates.</li><li>You see their profile and confirm with one click.</li><li>Calendar invites and the signed schedule of work arrive by email.</li></ol></div>
+        <div class="card"><p class="eyebrow">Your studio contact</p><p style="margin-top:6px"><b>Aliki</b><br><span class="muted">creatives@ludicgroup.com<br>+44 20 7269 0572</span></p></div>
+      </aside>
+    </form>`;
+
+  if (s==="booked"||s==="sourcing") return `
+    <div class="hero"><p class="eyebrow">Your booking</p><h1>Thanks ${esc(first())}, your booking is in</h1></div>
+    <div class="grid side"><div class="stack">
+      <div class="ok">Booking ${job.ref} received ${job.route==="card"?"and deposit of "+gbp(total()/2)+" paid":"· invoice will be raised against PO "+(job.billing.po||"(to follow)")}.</div>
+      <div class="notice">We're matching a scribe to your event now. You'll get an email within two working days with their profile to confirm.</div>
+      ${scopeBlock()}
+    </div><aside><div class="card"><p class="eyebrow">Documents</p><ul style="margin:8px 0 0;padding-left:18px;font-size:.92rem"><li>Schedule of work (PDF)</li><li>Terms v1, accepted ${job.acceptedAt||""}</li>${job.route==="card"?"<li>Deposit invoice, paid</li>":""}</ul></div></aside></div>`;
+
+  if (s==="scribe_assigned"){ const sc=scribes.find(x=>x.id===job.scribe); return `
+    <div class="hero"><p class="eyebrow">Your scribe</p><h1>Meet ${esc(sc.name)}, your scribe for ${esc(job.event.name)}</h1></div>
+    <div class="grid side"><div class="stack">
+      <section class="card"><div class="scribe" style="border:0;padding:0"><div class="avatar">${sc.initial}</div><div class="meta"><b>${esc(sc.name)}</b><span class="muted">${esc(sc.styles)} · ${esc(sc.langs)}</span></div></div>
+        <p style="margin-top:10px">${esc(sc.name)} has scribed keynotes for audiences of 300 to 700 and works straight to a screen feed, so the visual builds live behind the speaker.</p>
+        <div class="samples"><span></span><span></span><span></span></div><p class="muted" style="font-size:.8rem;margin-top:6px">Portfolio samples (placeholders in this prototype)</p>
+        <div class="actions"><button class="btn marker" id="confirmScribe">Confirm ${esc(sc.name)}</button><button class="btn secondary" id="altScribe">Ask for an alternative</button></div>
+        <p class="muted" style="font-size:.85rem;margin-top:10px">All contact runs through the studio; ${esc(sc.name)} will be briefed by us and meet your on-site contact on arrival.</p>
+      </section>
+    </div><aside><div class="card"><p class="eyebrow">Still to do</p><ul style="margin:8px 0 0;padding-left:18px;font-size:.92rem"><li>Confirm your scribe</li>${job.route==="po"&&!job.billing.po?"<li>Send us your PO number</li>":""}</ul></div></aside></div>`; }
+
+  if (s==="confirmed"){ const sc=scribes.find(x=>x.id===job.scribe); return `
+    <div class="hero"><p class="eyebrow">Confirmed</p><h1>You're all set for ${esc(job.sessions[0].d)}</h1></div>
+    <div class="grid side"><div class="stack">
+      <div class="ok">${esc(sc.name)} is confirmed. Calendar invites and the signed schedule of work have been emailed.</div>
+      ${scopeBlock()}
+    </div><aside><div class="card"><p class="eyebrow">After the event</p><p style="margin-top:6px;font-size:.92rem">Your visuals arrive here by ${esc(job.outputs.due)}. ${job.route==="card"?"The balance of "+gbp(total()/2)+" is due within 7 days of delivery.":"Our invoice is against PO "+esc(job.billing.po||"(to follow)")+"."}</p></div></aside></div>`; }
+
+  if (s==="delivered"){ return `
+    <div class="hero"><p class="eyebrow">Your outputs</p><h1>Your visuals from ${esc(job.event.name)} are ready</h1></div>
+    <div class="grid side"><div class="stack">
+      <section class="card"><h2>Downloads</h2><div class="tbl"><table style="margin-top:10px"><thead><tr><th>File</th><th>Format</th><th></th></tr></thead><tbody>
+        <tr><td>${job.ref}_Day1_Keynote.png</td><td>PNG, A1 300dpi</td><td><button class="btn small secondary">Download</button></td></tr>
+        <tr><td>${job.ref}_Day2_Opening.png</td><td>PNG, A1 300dpi</td><td><button class="btn small secondary">Download</button></td></tr>
+        <tr><td>${job.ref}_Day3_Closing.png</td><td>PNG, A1 300dpi</td><td><button class="btn small secondary">Download</button></td></tr>
+        <tr><td>${job.ref}_Source.zip</td><td>Editable source</td><td><button class="btn small secondary">Download</button></td></tr>
+      </tbody></table></div><p class="muted" style="font-size:.85rem;margin-top:8px">Links expire in 7 days; ask us to re-issue them any time.</p></section>
+      ${job.route==="card"?`<section class="card"><h2>Balance due</h2><p style="margin:6px 0 12px">${gbp(total()/2)} plus expenses of £312.40 (rail and one night's hotel, receipts attached). Due by 11 Dec 2026.</p><button class="btn marker" id="payBalance">Pay ${gbp(total()/2+312.40)} by card</button></section>`
+      :`<section class="card"><h2>Invoice</h2><p style="margin:6px 0 12px">Invoice INV-2026-0187 for ${gbp(total())} plus expenses of £312.40 has been sent to ${esc(job.billing.ap)} against PO ${esc(job.billing.po||"(pending)")}.</p><button class="btn secondary" id="payBalance">Mark as paid (simulates Xero webhook)</button></section>`}
+    </div><aside><div class="card"><p class="eyebrow">Two quick questions</p><p style="margin-top:6px;font-size:.92rem">How did the scribing land with your leaders? We'll ask once the balance is settled.</p></div></aside></div>`; }
+
+  if (s==="closed") return `<div class="hero"><p class="eyebrow">Closed</p><h1>Thank you, ${esc(first())}</h1></div><div class="card" style="max-width:640px"><p>Job ${job.ref} is complete and paid. Your downloads stay available from this page, and we'd love two minutes of feedback.</p><div class="actions"><button class="btn marker">Give feedback</button><button class="btn secondary">Book another event</button></div></div>`;
+  return `<div class="card">The client has no link yet. Send one from the Job tracker.</div>`;
+}
+
+function scribeView(){
+  const s=job.status;
+  if (!job.offer) return `<div class="hero"><p class="eyebrow">Scribe portal</p><h1>No open offers</h1><p class="muted" style="margin-top:8px">Offers appear here when the studio sends one. In the prototype, go to the Job tracker and offer this job to a scribe.</p></div>`;
+  const sc=scribes.find(x=>x.id===job.offer);
+  if (s==="sourcing") return `
+    <div class="hero"><p class="eyebrow">Job offer for ${esc(sc.name)}</p><h1>Can you scribe ${esc(job.event.name)}, ${esc(dateRange())}?</h1></div>
+    <div class="grid side"><div class="stack">
+      <section class="card"><h2>The brief</h2>
+        <dl class="kv" style="margin-top:12px"><dt>Format</dt><dd>${esc(job.event.type)} · ${esc(job.event.size)}</dd><dt>Purpose</dt><dd>${esc(job.event.purpose)}</dd><dt>Capture</dt><dd>${esc(job.event.capture)}</dd><dt>Venue</dt><dd>${esc(job.event.venue)}</dd><dt>Outputs</dt><dd>${esc(job.outputs.spec)} by ${esc(job.outputs.due)}</dd><dt>Travel</dt><dd>Studio books rail and one night's hotel; expenses at cost on receipts</dd></dl>
+        <h3 style="margin:16px 0 8px">Sessions</h3><div class="tbl"><table><tbody>${job.sessions.map(x=>`<tr><td>${esc(x.d)}</td><td class="mono">${esc(x.t)}</td><td>${esc(x.what)}</td></tr>`).join("")}</tbody></table></div>
+        <h3 style="margin:16px 0 8px">Your fee</h3><p>${gbp(sc.half)} per half day × 3 = <b>${gbp(sc.half*3)}</b>, paid within 30 days of the studio's invoice being settled.</p>
+        <div class="actions"><button class="btn marker" id="acceptOffer">Accept and hold the dates</button><button class="btn secondary" id="declineOffer">Decline</button></div>
+        <p class="muted" style="font-size:.85rem;margin-top:10px">The client's name and contacts are shared once the booking is confirmed. Please hold the dates until we come back to you, within 2 working days.</p>
+      </section>
+    </div><aside><div class="card"><p class="eyebrow">Offer expires</p><p style="margin-top:6px"><b>Wed 14 Oct, 17:00</b></p></div></aside></div>`;
+  if (s==="scribe_assigned") return `<div class="hero"><p class="eyebrow">Accepted</p><h1>Thanks ${esc(sc.name)}, dates held</h1></div><div class="notice">We're waiting for the client to confirm. You'll get the full brief and calendar invites as soon as they do.</div>`;
+  if (s==="confirmed") return `
+    <div class="hero"><p class="eyebrow">Confirmed job</p><h1>${esc(job.event.name)} is confirmed</h1></div>
+    <div class="grid side"><div class="stack">
+      <section class="card"><h2>Pre-event checklist</h2>
+        <div style="display:grid;gap:8px;margin-top:12px;font-size:.92rem">
+          <label class="check"><input type="checkbox" checked><span>Calendar invites accepted (3 sessions)</span></label>
+          <label class="check"><input type="checkbox" checked><span>Rail booked: Euston 15:03, Sun 29 Nov</span></label>
+          <label class="check"><input type="checkbox"><span>Briefing call with Aliki, Thu 26 Nov 11:00</span></label>
+          <label class="check"><input type="checkbox"><span>Screen feed tested with venue AV (contact: Tom Reid, Hall 3 production desk)</span></label>
+        </div></section>
+      <section class="card"><h2>Upload outputs</h2><p class="muted" style="margin:6px 0 12px;font-size:.92rem">After the event, drop the final files and your expense receipts here. The studio reviews before anything reaches the client.</p>
+        <div style="border:2px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center" class="muted">Drag files here or <b>browse</b></div>
+        <div class="actions"><button class="btn marker" id="uploadOutputs">Simulate upload of 3 visuals + receipts</button></div></section>
+    </div><aside><div class="card"><p class="eyebrow">On-site contact</p><p style="margin-top:6px;font-size:.92rem"><b>Tom Reid</b><br>+44 7700 900456<br>Hall 3, crew pass at production desk<br>Arrive 17:00 Sun for set-up</p></div></aside></div>`;
+  return `<div class="hero"><p class="eyebrow">Job ${job.ref}</p><h1>Outputs delivered, thank you</h1></div><div class="notice">Your invoice for ${gbp(sc.half*3)} plus £312.40 expenses is approved and will be paid once the client settles.</div>`;
+}
+
+function adminView(){
+  const cols = ["draft","awaiting_client","booked","sourcing","scribe_assigned","confirmed","delivered","closed"];
+  const all = [{ref:job.ref,ev:job.event.name,org:job.client.org,status:job.status,scribe:job.scribe?scribes.find(x=>x.id===job.scribe).name:null,fee:total()}, ...others];
+  const board = `<div class="board">${cols.map(c=>`<div class="col"><h4><span>${LABEL[c]}</span><span>${all.filter(j=>j.status===c).length}</span></h4>${all.filter(j=>j.status===c).map(j=>`<div class="jobcard ${j.ref===adminJob?"active":""}" data-ref="${j.ref}"><span class="r">${j.ref}</span><b>${esc(j.ev)}</b><span class="muted">${esc(j.org)} · ${gbp(j.fee)}</span>${j.scribe?`<br><span class="pill">${esc(j.scribe)}</span>`:""}</div>`).join("")}</div>`).join("")}</div>`;
+  let detail;
+  if (adminJob!==job.ref){ const j=others.find(x=>x.ref===adminJob); detail=`<section class="card"><p class="eyebrow">${j.ref}</p><h2>${esc(j.ev)}</h2><p class="muted">${esc(j.org)} · ${LABEL[j.status]} · ${gbp(j.fee)}</p><p class="muted" style="margin-top:12px;font-size:.9rem">Illustrative job. Select LMS-2026-0042 to walk the full flow.</p></section>`; }
+  else {
+    const s=job.status; let action="";
+    if (s==="draft") action=`<div class="notice">Draft. Check the scope and fee, then send the booking link to ${esc(job.client.contact)} (${esc(job.client.email)}).</div><div class="actions"><button class="btn marker" id="sendLink">Send booking link</button><button class="btn secondary small" id="editDraft">Edit scope</button></div>`;
+    if (s==="awaiting_client") action=`<div class="notice">Booking link sent to ${esc(job.client.contact)}. <button class="btn small secondary" id="resend">Resend link</button> <button class="btn small secondary" id="simClient">Open client view</button></div>`;
+    if (s==="booked"||s==="sourcing") action=`<h3 style="margin:16px 0 8px">Offer to a scribe</h3>${scribes.map(sc=>`<div class="scribe"><div class="avatar">${sc.initial}</div><div class="meta"><b>${esc(sc.name)} <span class="muted" style="font-weight:400">· ${esc(sc.base)}</span></b><span class="muted">${esc(sc.styles)} · ${gbp(sc.half)} half day · ${esc(sc.avail)}</span></div>${job.offer===sc.id?`<span class="pill warn">Offered</span>`:`<button class="btn small" data-offer="${sc.id}" ${job.offer?"disabled":""}>Offer</button>`}</div>`).join("")}${job.offer?`<p class="muted" style="font-size:.85rem">Waiting for a reply (expires in 2 working days). <button class="btn small secondary" id="simScribe">Open scribe view</button></p>`:""}`;
+    if (s==="scribe_assigned") action=`<div class="notice">${esc(scribes.find(x=>x.id===job.scribe).name)} accepted. Client asked to confirm; ${job.route==="po"&&!job.billing.po?"PO still outstanding.":"payment in place."} <button class="btn small secondary" id="simClient">Open client view</button></div>`;
+    if (s==="confirmed") action=`<div class="notice">Confirmed. Calendar invites sent; HubSpot deal Closed Won; ${job.route==="po"?"Xero invoice raised against PO "+esc(job.billing.po||"(pending)"):"deposit paid, balance invoice queued"}. Waiting for outputs${job.outputsUploaded?": <b>3 files uploaded, ready to review</b>":""}.</div>${job.outputsUploaded?`<div class="actions"><button class="btn marker" id="release">Approve and release to client</button></div>`:`<p class="muted" style="font-size:.85rem;margin-top:8px"><button class="btn small secondary" id="simScribe">Open scribe view</button></p>`}`;
+    if (s==="delivered") action=`<div class="notice">Outputs released; ${job.route==="card"?"balance invoice with Stripe link sent":"invoice INV-2026-0187 sent to AP"}. Waiting for payment.</div>`;
+    if (s==="closed") action=`<div class="ok">Paid and closed. Feedback request sent.</div>`;
+    detail=`<section class="card"><p class="eyebrow">${job.ref}</p><h2>${esc(job.event.name)}</h2>
+      <p style="margin:4px 0 12px"><span class="pill info">${LABEL[s]}</span> <span class="pill ${job.payment==="paid"?"go":job.payment==="unpaid"?"warn":"info"}">${job.payment.replace("_"," ")}</span> <span class="pill ${job.contract==="pending"?"warn":"go"}">${job.contract.replace("_"," ")}</span></p>
+      <dl class="kv"><dt>Client</dt><dd>${esc(job.client.org)} · ${esc(job.client.contact)}</dd><dt>Dates</dt><dd>${esc(dateRange())} · ${esc(job.event.venue)}</dd><dt>Fee</dt><dd>${gbp(total())} · ${job.route?job.route.toUpperCase():"route not chosen"}</dd><dt>Owner</dt><dd>Aliki</dd><dt>HubSpot</dt><dd>Deal ${job.ref} · Ludic Pipeline · ${s==="confirmed"||s==="delivered"||s==="closed"?"Closed Won":"Contracting"}</dd></dl>
+      ${action}
+      <h3 style="margin:18px 0 6px">Activity</h3><ul class="log">${[...job.log].reverse().map(l=>`<li><span>${esc(l.t)}</span><span>${esc(l.a)}</span></li>`).join("")}</ul></section>`;
+  }
+  if (adminMode==="new") return newJobView();
+  return `<div class="hero" style="padding-top:16px;display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px"><div><p class="eyebrow">Job tracker · Ludic Media Studio</p><h1>Scribing jobs</h1></div><button class="btn marker" id="newJob">+ New job</button></div>${board}<div class="grid side" style="margin-top:20px"><div>${detail}</div><aside class="stack"><div class="card"><p class="eyebrow">This month</p><dl class="kv" style="margin-top:8px"><dt>Booked</dt><dd><b>7 jobs · £13,400</b></dd><dt>Awaiting client</dt><dd>2</dd><dt>Unpaid balances</dt><dd>£2,400</dd><dt>Scribe pool</dt><dd>${scribes.length} active</dd></dl></div><div class="card"><p class="eyebrow">Scribe pool</p>${scribes.map(sc=>`<p style="margin-top:6px;font-size:.9rem"><b>${esc(sc.name)}</b> <span class="muted">· ${esc(sc.base)} · ${esc(sc.avail)}</span></p>`).join("")}<button class="btn small secondary" style="margin-top:10px">Add scribe</button></div></aside></div>`;
+}
+
+function newJobView(){
+  const row=(i,d="",t="",w="")=>`<tr><td><input id="sd${i}" value="${esc(d)}" placeholder="Mon 2 Feb 2027"></td><td><input id="st${i}" value="${esc(t)}" placeholder="09:00–11:00"></td><td><input id="sw${i}" value="${esc(w)}" placeholder="Opening keynote"></td></tr>`;
+  const fee=(i,d="",q="",r="")=>`<tr><td><input id="fd${i}" value="${esc(d)}" placeholder="Digital scribing, half day"></td><td><input id="fq${i}" type="number" min="0" value="${q}" placeholder="1"></td><td><input id="fr${i}" type="number" min="0" step="50" value="${r}" placeholder="1000"></td></tr>`;
+  return `<div class="hero" style="padding-top:16px"><p class="eyebrow">Job tracker · new job</p><h1>New scribing job <span class="mono muted" style="font-size:1rem;font-weight:500">LMS-2026-${String(nextSeq).padStart(4,"0")}</span></h1><p class="muted" style="margin-top:6px">Fill this in straight after the scoping call. Everything here is pre-filled into the client's booking link; they add logistics and billing.</p></div>
+  <form id="newJobForm" class="grid side"><div class="stack">
+    <section class="card"><h2>Where did it come from?</h2><div class="choice three" style="margin-top:12px">
+      <label><input type="radio" name="src" value="call" checked><b>Scoping call</b><br><span class="muted">Typed in now</span></label>
+      <label><input type="radio" name="src" value="hubspot"><b>HubSpot deal</b><br><span class="muted">Pick a deal; client and contact pre-fill</span></label>
+      <label><input type="radio" name="src" value="web"><b>Website enquiry</b><br><span class="muted">Starts as a draft with contact only</span></label></div></section>
+    <section class="card"><h2>Client</h2><div class="grid g2" style="margin-top:12px">
+      <div class="field"><label for="nOrg">Organisation</label><input id="nOrg" value="Barilla" required></div>
+      <div class="field"><label for="nContact">Primary contact</label><input id="nContact" value="Luca Ferrari" required></div>
+      <div class="field"><label for="nEmail">Email</label><input id="nEmail" type="email" value="luca.ferrari@barilla.example" required></div>
+      <div class="field"><label for="nPhone">Phone</label><input id="nPhone" value="+39 0521 000000"></div></div>
+      <p class="muted" style="font-size:.85rem">Existing client: billing details copied from job LMS-2026-0039.</p></section>
+    <section class="card"><h2>Event</h2><div class="grid g2" style="margin-top:12px">
+      <div class="field"><label for="nEvent">Event name</label><input id="nEvent" value="Leadership Offsite 2027" required></div>
+      <div class="field"><label for="nType">Type of scribing</label><select id="nType"><option>Digital live scribing</option><option>Analogue wall / knowledge wall</option><option>Sketchnotes</option><option>Remote (online event)</option></select></div>
+      <div class="field"><label for="nVenue">Venue</label><input id="nVenue" value="Parma, Italy (venue tbc)"></div>
+      <div class="field"><label for="nSize">Size of group</label><input id="nSize" value="c. 60 leaders"></div></div>
+      <div class="field"><label for="nPurpose">Purpose</label><textarea id="nPurpose" rows="2">Capture the strategy conversations across two days into one visual the leadership team takes back to their functions.</textarea></div>
+      <div class="field"><label for="nCapture">What is being captured</label><input id="nCapture" value="Plenary sessions both days; breakouts summarised in a closing wall"></div>
+      <h3 style="margin:14px 0 8px">Sessions</h3><div class="tbl"><table><thead><tr><th>Date</th><th>Time</th><th>Session</th></tr></thead><tbody>${row(1,"Thu 4 Feb 2027","09:00–17:00","Day 1 plenary and breakouts")}${row(2,"Fri 5 Feb 2027","09:00–13:00","Day 2 plenary and closing")}${row(3)}</tbody></table></div></section>
+    <section class="card"><h2>Fee and outputs</h2><p class="muted" style="margin:4px 0 10px;font-size:.9rem">Quoted per job; never published. Rate card defaults: half day £1,000, full day £1,800, international travel day £600.</p>
+      <div class="tbl"><table><thead><tr><th>Item</th><th>Qty</th><th>Rate (£)</th></tr></thead><tbody>${fee(1,"Digital scribing, full day",1,1800)}${fee(2,"Digital scribing, half day",1,1000)}${fee(3,"Travel day",1,600)}</tbody></table></div>
+      <div class="grid g2" style="margin-top:12px"><div class="field"><label for="nExp">Expenses</label><select id="nExp"><option>Billed at cost on final invoice</option><option>Capped at £500</option><option>Included in fee</option></select></div><div class="field"><label for="nCur">Currency</label><select id="nCur"><option>GBP</option><option>EUR</option><option>USD</option><option>CHF</option></select></div></div>
+      <div class="field"><label for="nSpec">Output spec</label><input id="nSpec" value="One A0 digital visual per day plus closing wall, PNG + editable source"></div>
+      <div class="grid g2"><div class="field"><label for="nDue">Output delivery date</label><input id="nDue" value="Fri 12 Feb 2027"></div><div class="field"><label for="nOwner">Studio owner</label><select id="nOwner"><option>Aliki</option><option>Sarah</option><option>Pasha</option></select></div></div></section>
+    <div class="actions"><button class="btn marker" type="submit">Create job as draft</button><button class="btn secondary" type="button" id="cancelNew">Cancel</button></div>
+  </div><aside class="stack"><div class="card"><p class="eyebrow">What saving does</p><ol style="margin:8px 0 0;padding-left:18px;font-size:.92rem;display:grid;gap:6px"><li>Issues the next job ID</li><li>Creates or updates the company and contact in HubSpot and opens a deal at Contracting</li><li>Lands the job in Draft on the board</li><li>Nothing is sent to the client until you click Send booking link</li></ol></div></aside></form>`;
+}
+
+function render(){
+  renderSteps();
+  const v=document.getElementById("view");
+  v.innerHTML = view==="client"?clientView():view==="scribe"?scribeView():adminView();
+  document.querySelectorAll(".roles button").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===view));
+  bind();
+}
+
+function bind(){
+  const q=id=>document.getElementById(id);
+  const f=q("bookingForm");
+  if (f){ f.addEventListener("submit",e=>{e.preventDefault(); if(!q("accept").checked){toast("Please accept the terms to confirm.");return;}
+    job.route=f.querySelector('input[name=route]:checked').value; job.billing.po=q("po").value.trim(); job.logistics={room:q("room").value,onsite:q("onsite").value,arrival:q("arrival").value,access:q("access").value};
+    job.contract="accepted_online"; job.acceptedAt=new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+    if(job.route==="card"){ job.payment="deposit_paid"; logIt(first()+" accepted terms v1 and paid the 50% deposit ("+gbp(total()/2)+") via Stripe."); }
+    else { job.payment=job.billing.po?"po_received":"unpaid"; logIt(first()+" accepted terms v1. Route: purchase order"+(job.billing.po?" "+job.billing.po:" (number to follow)")+"."); }
+    logIt("Schedule of work PDF emailed to client. HubSpot deal moved to Contracting."); toast("Booking confirmed"); set("booked"); });
+    q("queryBtn").addEventListener("click",()=>toast("Prototype: this would open a message to Aliki."));
+  }
+  q("confirmScribe")?.addEventListener("click",()=>{ job.clientConfirmed=true; const n=scribes.find(x=>x.id===job.scribe).name; logIt(first()+" confirmed "+n+". Calendar invites sent; HubSpot deal Closed Won"+(job.route==="po"?"; Xero invoice raised.":".")); toast(n+" confirmed"); set("confirmed"); });
+  q("altScribe")?.addEventListener("click",()=>{ logIt(first()+" asked for an alternative scribe."); job.offer=null; job.scribe=null; toast("Back to sourcing"); set("sourcing"); });
+  q("acceptOffer")?.addEventListener("click",()=>{ job.scribe=job.offer; logIt(scribes.find(x=>x.id===job.scribe).name+" accepted the offer. Client emailed the scribe profile to confirm."); toast("Offer accepted"); set("scribe_assigned"); });
+  q("declineOffer")?.addEventListener("click",()=>{ logIt(scribes.find(x=>x.id===job.offer).name+" declined the offer."); job.offer=null; toast("Declined"); set("sourcing"); });
+  q("uploadOutputs")?.addEventListener("click",()=>{ job.outputsUploaded=true; logIt(scribes.find(x=>x.id===job.scribe).name+" uploaded 3 visuals and expense receipts (£312.40)."); toast("Uploaded, studio notified"); render(); });
+  q("release")?.addEventListener("click",()=>{ job.released=true; logIt("Aliki approved outputs and released them to the client. "+(job.route==="card"?"Balance invoice with Stripe link sent.":"Invoice INV-2026-0187 sent to AP.")); toast("Released to client"); set("delivered"); });
+  q("payBalance")?.addEventListener("click",()=>{ job.payment="paid"; logIt("Payment received"+(job.route==="card"?" via Stripe.":" (Xero webhook).")+" Feedback request sent."); toast("Paid, job closed"); set("closed"); });
+  q("resend")?.addEventListener("click",()=>{ logIt("Booking link resent to "+first()+"."); toast("Link resent"); render(); });
+  q("newJob")?.addEventListener("click",()=>{ adminMode="new"; render(); window.scrollTo(0,0); });
+  q("cancelNew")?.addEventListener("click",()=>{ adminMode="board"; render(); });
+  q("sendLink")?.addEventListener("click",()=>{ logIt("Booking link sent to "+job.client.contact+" ("+job.client.email+"). Expires in 30 days."); toast("Booking link sent"); set("awaiting_client"); });
+  q("editDraft")?.addEventListener("click",()=>toast("Prototype: this would reopen the job form."));
+  const nf=q("newJobForm");
+  if (nf){ nf.addEventListener("submit",e=>{ e.preventDefault();
+    // park the current walkable job on the board, then start the new one
+    others.unshift({ref:job.ref,ev:job.event.name,org:job.client.org,status:job.status,scribe:job.scribe?scribes.find(x=>x.id===job.scribe).name:null,fee:total()});
+    const ref="LMS-2026-"+String(nextSeq++).padStart(4,"0");
+    const sessions=[1,2,3].map(i=>({d:q("sd"+i).value.trim(),t:q("st"+i).value.trim(),what:q("sw"+i).value.trim()})).filter(x=>x.d);
+    const fees=[1,2,3].map(i=>({desc:q("fd"+i).value.trim(),qty:+q("fq"+i).value||0,rate:+q("fr"+i).value||0})).filter(x=>x.desc&&x.qty);
+    Object.assign(job,{ref,status:"draft",payment:"unpaid",contract:"pending",route:null,offer:null,scribe:null,clientConfirmed:false,outputsUploaded:false,released:false,acceptedAt:null,
+      client:{org:q("nOrg").value,contact:q("nContact").value,email:q("nEmail").value,phone:q("nPhone").value},
+      event:{name:q("nEvent").value,purpose:q("nPurpose").value,capture:q("nCapture").value,type:q("nType").value,size:q("nSize").value,venue:q("nVenue").value},
+      sessions, fees, outputs:{spec:q("nSpec").value,due:q("nDue").value,rights:job.outputs.rights},
+      billing:{entity:q("nOrg").value+" S.p.A.",address:"Via Mantova 166, 43122 Parma, Italy",ap:"ap@"+q("nOrg").value.toLowerCase().replace(/\s+/g,"")+".example",vat:"IT 01654010345",po:""},
+      log:[]});
+    document.getElementById("ref").textContent=job.ref; document.getElementById("eventname").textContent=job.event.name+" · "+job.client.org;
+    const src=nf.querySelector('input[name=src]:checked').value;
+    logIt("Job created by "+q("nOwner").value+" from "+(src==="call"?"scoping call":src==="hubspot"?"HubSpot deal":"website enquiry")+". HubSpot deal "+ref+" opened at Contracting.");
+    adminJob=ref; adminMode="board"; toast("Job "+ref+" created as draft"); render(); window.scrollTo(0,0); }); }
+  q("simClient")?.addEventListener("click",()=>{ view="client"; render(); });
+  q("simScribe")?.addEventListener("click",()=>{ view="scribe"; render(); });
+  document.querySelectorAll("[data-offer]").forEach(b=>b.addEventListener("click",()=>{ job.offer=b.dataset.offer; const n=scribes.find(x=>x.id===job.offer).name; logIt("Aliki offered the job to "+n+". Offer email sent with brief and fee."); toast("Offer sent to "+n); set("sourcing"); }));
+  document.querySelectorAll(".jobcard").forEach(c=>c.addEventListener("click",()=>{ adminJob=c.dataset.ref; render(); }));
+}
+document.querySelectorAll(".roles button").forEach(b=>b.addEventListener("click",()=>{ view=b.dataset.view; render(); }));
+render();
+</script>
